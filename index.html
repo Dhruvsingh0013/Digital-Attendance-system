@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseRoll | Online Attendance System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg-shape bg-shape-1"></div>
+  <div class="bg-shape bg-shape-2"></div>
+
+  <header class="topbar">
+    <h1>PulseRoll</h1>
+    <p>Online Attendance System</p>
+  </header>
+
+  <main class="layout">
+    <section class="card session-card">
+      <div class="card-head">
+        <h2>Session Setup</h2>
+      </div>
+      <form id="sessionForm" class="session-form">
+        <label>
+          Class Name
+          <input id="className" type="text" placeholder="e.g. B.Tech Semester 4" required>
+        </label>
+        <label>
+          Date
+          <input id="attendanceDate" type="date" required>
+        </label>
+        <label>
+          Teacher
+          <input id="teacherName" type="text" placeholder="e.g. Ms. Sharma" required>
+        </label>
+        <button type="submit" class="btn btn-primary">Start Attendance</button>
+      </form>
+      <p id="sessionInfo" class="session-info">No active session</p>
+    </section>
+
+    <section class="card students-card">
+      <div class="card-head row">
+        <h2>Students</h2>
+        <button id="addStudentBtn" class="btn btn-ghost" type="button">+ Add Student</button>
+      </div>
+      <form id="addStudentForm" class="add-student-form hidden">
+        <input id="studentName" type="text" placeholder="Student full name" required>
+        <input id="student Roll. No." type="text" placeholder="Roll number / Roll. No." required>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </form>
+      <div id="studentList" class="student-list"></div>
+    </section>
+
+    <section class="card stats-card">
+      <div class="card-head">
+        <h2>Quick Stats</h2>
+      </div>
+      <div class="stats-grid">
+        <article>
+          <p>Total Students</p>
+          <h3 id="statTotal">0</h3>
+        </article>
+        <article>
+          <p>Present</p>
+          <h3 id="statPresent">0</h3>
+        </article>
+        <article>
+          <p>Absent</p>
+          <h3 id="statAbsent">0</h3>
+        </article>
+        <article>
+          <p>Late</p>
+          <h3 id="statLate">0</h3>
+        </article>
+      </div>
+      <button id="saveRecordBtn" class="btn btn-primary btn-full" type="button">Save Session Record</button>
+    </section>
+
+    <section class="card history-card">
+      <div class="card-head row">
+        <h2>Attendance History</h2>
+        <button id="clearHistoryBtn" class="btn btn-danger" type="button">Clear History</button>
+      </div>
+      <div class="history-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Class</th>
+              <th>Teacher</th>
+              <th>Present</th>
+              <th>Absent</th>
+              <th>Late</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <template id="studentRowTemplate">
+    <article class="student-row">
+      <div class="student-meta">
+        <h4 class="student-title"></h4>
+        <p class="student-subtitle"></p>
+      </div>
+      <div class="status-controls">
+        <button type="button" data-status="present">Present</button>
+        <button type="button" data-status="absent">Absent</button>
+        <button type="button" data-status="late">Late</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="script.js"></script>
+</body>
+</html>
