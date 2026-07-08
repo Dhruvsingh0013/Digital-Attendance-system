@@ -1,9 +1,11 @@
+const API_BASE = "frontend URL";
+ 
 const state = {
-  students: JSON.parse(localStorage.getItem("attendance_students") || "[]"),
+  students: [],
   session: null,
   history: JSON.parse(localStorage.getItem("attendance_history") || "[]")
 };
-
+ 
 const refs = {
   sessionForm: document.getElementById("sessionForm"),
   className: document.getElementById("className"),
@@ -24,7 +26,7 @@ const refs = {
   clearHistoryBtn: document.getElementById("clearHistoryBtn"),
   studentRowTemplate: document.getElementById("studentRowTemplate")
 };
-
+ 
 function formatDate(dateText) {
   if (!dateText) return "-";
   const date = new Date(dateText + "T00:00:00");
@@ -34,15 +36,11 @@ function formatDate(dateText) {
     day: "numeric"
   });
 }
-
-function persistStudents() {
-  localStorage.setItem("attendance_students", JSON.stringify(state.students));
-}
-
+ 
 function persistHistory() {
   localStorage.setItem("attendance_history", JSON.stringify(state.history));
 }
-
+ 
 function ensureSessionStatuses() {
   if (!state.session) return;
   for (const student of state.students) {
@@ -51,7 +49,7 @@ function ensureSessionStatuses() {
     }
   }
 }
-
+ 
 function renderSessionInfo() {
   if (!state.session) {
     refs.sessionInfo.textContent = "No active session";
@@ -59,7 +57,7 @@ function renderSessionInfo() {
   }
   refs.sessionInfo.textContent = `${state.session.className} | ${formatDate(state.session.date)} | ${state.session.teacher}`;
 }
-
+ 
 function updateStats() {
   refs.statTotal.textContent = String(state.students.length);
   if (!state.session) {
@@ -81,14 +79,37 @@ function updateStats() {
   refs.statAbsent.textContent = String(absent);
   refs.statLate.textContent = String(late);
 }
-
-function setStudentStatus(studentId, status) {
-  if (!state.session) return;
+ 
+async function setStudentStatus(studentId, status) {
+  if (!state.session) {
+    alert("Start a session first.");
+    return;
+  }
+ 
+  const previousStatus = state.session.statusByStudentId[studentId] || "absent";
+  // Update the UI immediately, then confirm with the backend.
   state.session.statusByStudentId[studentId] = status;
   renderStudentList();
-  updateStats();
+ 
+  try {
+    const response = await fetch(`${API_BASE}/attendance`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: state.session.id,
+        student_id: studentId,
+        status
+      })
+    });
+    if (!response.ok) throw new Error("Request failed");
+  } catch (err) {
+    // Roll back if the backend didn't accept it.
+    state.session.statusByStudentId[studentId] = previousStatus;
+    renderStudentList();
+    alert("Could not save that attendance mark. Check that the server is running.");
+  }
 }
-
+ 
 function renderStudentList() {
   refs.studentList.innerHTML = "";
   if (state.students.length === 0) {
@@ -96,7 +117,7 @@ function renderStudentList() {
     updateStats();
     return;
   }
-
+ 
   ensureSessionStatuses();
   for (const student of state.students) {
     const node = refs.studentRowTemplate.content.firstElementChild.cloneNode(true);
@@ -104,22 +125,22 @@ function renderStudentList() {
     const subtitle = node.querySelector(".student-subtitle");
     const statusButtons = node.querySelectorAll("[data-status]");
     const status = state.session?.statusByStudentId[student.id] || "absent";
-
+ 
     title.textContent = student.name;
-    subtitle.textContent = `ID: ${student.id}`;
-
+    subtitle.textContent = `Roll: ${student.roll}`;
+ 
     statusButtons.forEach((button) => {
       if (button.dataset.status === status) {
         button.classList.add("active");
       }
       button.addEventListener("click", () => setStudentStatus(student.id, button.dataset.status));
     });
-
+ 
     refs.studentList.appendChild(node);
   }
   updateStats();
 }
-
+ 
 function renderHistory() {
   refs.historyBody.innerHTML = "";
   if (state.history.length === 0) {
@@ -130,7 +151,7 @@ function renderHistory() {
     `;
     return;
   }
-
+ 
   const records = [...state.history].reverse();
   for (const record of records) {
     const row = document.createElement("tr");
@@ -145,56 +166,100 @@ function renderHistory() {
     refs.historyBody.appendChild(row);
   }
 }
-
-function getSessionCounts() {
-  const counts = { present: 0, absent: 0, late: 0 };
-  for (const student of state.students) {
-    const status = state.session.statusByStudentId[student.id] || "absent";
-    counts[status] += 1;
-  }
-  return counts;
-}
-
-function startSession(event) {
+ 
+async function startSession(event) {
   event.preventDefault();
+ 
+  const response = await fetch(`${API_BASE}/session`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      class_name: refs.className.value,
+      teacher_name: refs.teacherName.value
+    })
+  });
+ 
+  if (!response.ok) {
+    alert("Could not start the session. Check that the server is running.");
+    return;
+  }
+ 
+  const data = await response.json();
+ 
   state.session = {
-    className: refs.className.value.trim(),
+    id: data.session_id,
+    className: refs.className.value,
     date: refs.attendanceDate.value,
-    teacher: refs.teacherName.value.trim(),
+    teacher: refs.teacherName.value,
     statusByStudentId: {}
   };
-  ensureSessionStatuses();
+ 
   renderSessionInfo();
   renderStudentList();
 }
-
-function addStudent(event) {
+ 
+async function addStudent(event) {
   event.preventDefault();
-  const name = refs.studentName.value.trim();
-  const id = refs.studentId.value.trim();
-  if (!name || !id) return;
-
-  const duplicate = state.students.some((student) => student.id.toLowerCase() === id.toLowerCase());
-  if (duplicate) {
-    alert("Student ID already exists.");
-    return;
-  }
-
-  state.students.push({ name, id });
-  persistStudents();
+ 
+  const response = await fetch(`${API_BASE}/student`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      student_roll: Number(refs.studentId.value),
+      student_name: refs.studentName.value
+    })
+  });
+ 
+  const data = await response.json();
+  alert(data.message);
+ 
   refs.addStudentForm.reset();
-  if (state.session) {
-    state.session.statusByStudentId[id] = "absent";
-  }
+  refs.addStudentForm.classList.add("hidden");
+  await loadStudents();
+}
+ 
+async function loadStudents() {
+  const response = await fetch(`${API_BASE}/students`);
+  const students = await response.json();
+ 
+  state.students = students.map((student) => ({
+    id: student.id,           // real DB id — used for attendance foreign keys
+    roll: student.student_roll,
+    name: student.student_name
+  }));
+ 
   renderStudentList();
 }
-
-function saveSessionRecord() {
+ 
+async function saveSessionRecord() {
   if (!state.session) {
     alert("Start a session first.");
     return;
   }
-  const counts = getSessionCounts();
+ 
+  let counts = { present: 0, absent: 0, late: 0 };
+ 
+  try {
+    const response = await fetch(`${API_BASE}/attendance/session/${state.session.id}`);
+    const records = await response.json();
+ 
+    const recordedIds = new Set();
+    for (const record of records) {
+      counts[record.status] = (counts[record.status] || 0) + 1;
+      recordedIds.add(record.student_id);
+    }
+    // Anyone never marked defaults to absent.
+    for (const student of state.students) {
+      if (!recordedIds.has(student.id)) counts.absent += 1;
+    }
+  } catch (err) {
+    // Backend unreachable — fall back to what's on screen.
+    for (const student of state.students) {
+      const status = state.session.statusByStudentId[student.id] || "absent";
+      counts[status] += 1;
+    }
+  }
+ 
   state.history.push({
     date: state.session.date,
     className: state.session.className,
@@ -205,14 +270,14 @@ function saveSessionRecord() {
   renderHistory();
   alert("Attendance record saved.");
 }
-
+ 
 function clearHistory() {
   if (!confirm("Clear all attendance history?")) return;
   state.history = [];
   persistHistory();
   renderHistory();
 }
-
+ 
 function init() {
   refs.attendanceDate.valueAsDate = new Date();
   refs.sessionForm.addEventListener("submit", startSession);
@@ -223,8 +288,9 @@ function init() {
   refs.saveRecordBtn.addEventListener("click", saveSessionRecord);
   refs.clearHistoryBtn.addEventListener("click", clearHistory);
   renderSessionInfo();
-  renderStudentList();
+  loadStudents();
   renderHistory();
 }
-
+ 
 init();
+ 
